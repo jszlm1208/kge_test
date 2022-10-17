@@ -24,13 +24,17 @@ import argparse
 from .utils import load_entity_data, load_raw_emb_data, load_raw_emb_mapping
 from .models.infer import EmbSimInfer
 
+
 class ArgParser(argparse.ArgumentParser):
     def __init__(self):
         super(ArgParser, self).__init__()
-        self.add_argument('--mfile', type=str, default=None,
-                          help='ID mapping file.')
-        self.add_argument('--emb_file', type=str, default=None,
-                          help='Numpy file containing the embeddings.')
+        self.add_argument(
+            '--mfile', type=str, default=None, help='ID mapping file.')
+        self.add_argument(
+            '--emb_file',
+            type=str,
+            default=None,
+            help='Numpy file containing the embeddings.')
         self.add_argument('--format', type=str,
                           help='The format of input data'\
                                 'l_r: two list of objects are provided as left objects and right objects.\n' \
@@ -55,8 +59,11 @@ class ArgParser(argparse.ArgumentParser):
                                     'result = topK([[score(l_i, rj) for l_i in L] for r_j in R]), the result shape will be (K,)\n'
                                'batch_left: both left and right objects are provided as L and R,, and we calculate topK for each element in L:' \
                                     'result = topK([score(l_i, r_j) for r_j in R]) for l_j in L, the result shape will be (sizeof(L), K)\n')
-        self.add_argument('--topK', type=int, default=10,
-                          help='How many results are returned')
+        self.add_argument(
+            '--topK',
+            type=int,
+            default=10,
+            help='How many results are returned')
         self.add_argument('--sim_func', type=str, default='cosine',
                           help='What kind of similarity function is used in ranking and will be output: \n' \
                                 'cosine: use cosine similarity, score = $\frac{x \cdot y}{||x||_2||y||_2}$' \
@@ -64,10 +71,17 @@ class ArgParser(argparse.ArgumentParser):
                                 'l1: use l1 similarity, score = -$||x - y||_1$ \n' \
                                 'dot: use dot product similarity, score = $x \cdot y$ \n' \
                                 'ext_jaccard: use extended jaccard similarity, score = $\frac{x \cdot y}{||x||_{2}^{2} + ||y||_{2}^{2} - x \cdot y}$ \n')
-        self.add_argument('--output', type=str, default='result.tsv',
-                          help='Where to store the result, should be a single file')
-        self.add_argument('--gpu', type=int, default=-1,
-                          help='GPU device to use in inference, -1 means CPU')
+        self.add_argument(
+            '--output',
+            type=str,
+            default='result.tsv',
+            help='Where to store the result, should be a single file')
+        self.add_argument(
+            '--gpu',
+            type=int,
+            default=-1,
+            help='GPU device to use in inference, -1 means CPU')
+
 
 def main():
     args = ArgParser().parse_args()
@@ -76,24 +90,24 @@ def main():
     data_files = args.data_files
     if args.format == 'l_r':
         if args.raw_data:
-            head, id2e_map, e2id_map = load_raw_emb_data(file=data_files[0],
-                                                         map_f=args.mfile)
-            tail, _, _ = load_raw_emb_data(file=data_files[1],
-                                           e2id_map=e2id_map)
+            head, id2e_map, e2id_map = load_raw_emb_data(
+                file=data_files[0], map_f=args.mfile)
+            tail, _, _ = load_raw_emb_data(
+                file=data_files[1], e2id_map=e2id_map)
         else:
             head = load_entity_data(data_files[0])
             tail = load_entity_data(data_files[1])
     elif args.format == 'l_*':
         if args.raw_data:
-            head, id2e_map, e2id_map = load_raw_emb_data(file=data_files[0],
-                                                         map_f=args.mfile)
+            head, id2e_map, e2id_map = load_raw_emb_data(
+                file=data_files[0], map_f=args.mfile)
         else:
             head = load_entity_data(data_files[0])
         tail = load_entity_data()
     elif args.format == '*_r':
         if args.raw_data:
-            tail, id2e_map, e2id_map = load_raw_emb_data(file=data_files[0],
-                                                         map_f=args.mfile)
+            tail, id2e_map, e2id_map = load_raw_emb_data(
+                file=data_files[0], map_f=args.mfile)
         else:
             tail = load_entity_data(data_files[0])
         head = load_entity_data()
@@ -134,6 +148,7 @@ def main():
                 f.write('{}\t{}\t{}\n'.format(h, t, s))
     print('Inference Done')
     print('The result is saved in {}'.format(args.output))
+
 
 if __name__ == '__main__':
     main()

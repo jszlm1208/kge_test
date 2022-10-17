@@ -16,7 +16,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
 """
 KG Sparse embedding
 """
@@ -38,6 +37,10 @@ from .. import *
 
 from .tensor_models import thread_wrapped_func
 
+th.cuda.manual_seed_all(123)
+th.manual_seed(123)
+
+
 class KGEmbedding:
     """Sparse Embedding for Knowledge Graph
     It is used to store both entity embeddings and relation embeddings.
@@ -51,6 +54,7 @@ class KGEmbedding:
     device : th.device
         Device to store the embedding.
     """
+
     def __init__(self, device):
         self.device = device
         self.emb = None
@@ -124,7 +128,7 @@ class KGEmbedding:
         self.is_train = False
 
     def setup_cross_rels(self, cross_rels, global_emb):
-        cpu_bitmap = th.zeros((self.num,), dtype=th.bool)
+        cpu_bitmap = th.zeros((self.num, ), dtype=th.bool)
         for i, rel in enumerate(cross_rels):
             cpu_bitmap[rel] = 1
         self.cpu_bitmap = cpu_bitmap
@@ -220,7 +224,8 @@ class KGEmbedding:
                             cpu_grad = grad_values[cpu_mask]
                             cpu_sum = grad_sum[cpu_mask].cpu()
                             cpu_idx = cpu_idx.cpu()
-                            self.global_emb.state_sum.index_add_(0, cpu_idx, cpu_sum)
+                            self.global_emb.state_sum.index_add_(0, cpu_idx,
+                                                                 cpu_sum)
                             std = self.global_emb.state_sum[cpu_idx]
                             if gpu_id >= 0:
                                 std = std.cuda(gpu_id)
@@ -245,4 +250,3 @@ class KGEmbedding:
         """
         data = [data for _, data in self.trace]
         return th.cat(data, 0)
-

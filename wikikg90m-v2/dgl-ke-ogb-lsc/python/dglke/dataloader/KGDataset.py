@@ -17,17 +17,15 @@
 # limitations under the License.
 #
 
-import os
-import sys
+import os, sys
 import numpy as np
 import pdb
-from ogb.lsc import WikiKG90Mv2Dataset, WikiKG90Mv2Evaluator
+from ogb.lsc import WikiKG90MDataset, WikiKG90MEvaluator
 import pickle
 
 
 def _download_and_extract(url, path, filename):
-    import shutil
-    import zipfile
+    import shutil, zipfile
     import requests
 
     fn = os.path.join(path, filename)
@@ -44,7 +42,7 @@ def _download_and_extract(url, path, filename):
             sz = f_remote.headers.get('content-length')
             assert f_remote.status_code == 200, 'fail to open {}'.format(url)
             with open(fn, 'wb') as writer:
-                for chunk in f_remote.iter_content(chunk_size=1024*1024):
+                for chunk in f_remote.iter_content(chunk_size=1024 * 1024):
                     writer.write(chunk)
             print('Download finished. Unzipping the file...')
 
@@ -94,19 +92,28 @@ class KGDataset:
     The triples are stored as 'head_name\trelation_name\ttail_name'.
     '''
 
-    def __init__(self, entity_path, relation_path, train_path,
-                 valid_path=None, test_path=None, format=[0, 1, 2],
-                 delimiter='\t', skip_first_line=False):
+    def __init__(self,
+                 entity_path,
+                 relation_path,
+                 train_path,
+                 valid_path=None,
+                 test_path=None,
+                 format=[0, 1, 2],
+                 delimiter='\t',
+                 skip_first_line=False):
         self.delimiter = delimiter
         self.entity2id, self.n_entities = self.read_entity(entity_path)
         self.relation2id, self.n_relations = self.read_relation(relation_path)
-        self.train = self.read_triple(train_path, "train", skip_first_line, format)
+        self.train = self.read_triple(train_path, "train", skip_first_line,
+                                      format)
         if valid_path is not None:
-            self.valid = self.read_triple(valid_path, "valid", skip_first_line, format)
+            self.valid = self.read_triple(valid_path, "valid", skip_first_line,
+                                          format)
         else:
             self.valid = None
         if test_path is not None:
-            self.test = self.read_triple(test_path, "test", skip_first_line, format)
+            self.test = self.read_triple(test_path, "test", skip_first_line,
+                                         format)
         else:
             self.test = None
 
@@ -142,7 +149,8 @@ class KGDataset:
                 _ = f.readline()
             for line in f:
                 triple = line.strip().split(self.delimiter)
-                h, r, t = triple[format[0]], triple[format[1]], triple[format[2]]
+                h, r, t = triple[format[0]], triple[format[1]], triple[format[
+                    2]]
                 heads.append(self.entity2id[h])
                 rels.append(self.relation2id[r])
                 tails.append(self.entity2id[t])
@@ -167,7 +175,11 @@ class PartitionKGDataset():
     The triples are stored as 'head_id\relation_id\tail_id'.
     '''
 
-    def __init__(self, relation_path, train_path, local2global_path, read_triple=True):
+    def __init__(self,
+                 relation_path,
+                 train_path,
+                 local2global_path,
+                 read_triple=True):
         self.n_entities = _file_line(local2global_path)
         with open(relation_path) as f:
             self.n_relations = int(f.readline().strip())
@@ -219,11 +231,12 @@ class KGDatasetFB15k(KGDataset):
             _download_and_extract(url, path, name + '.zip')
         self.path = os.path.join(path, name)
 
-        super(KGDatasetFB15k, self).__init__(os.path.join(self.path, 'entities.dict'),
-                                             os.path.join(self.path, 'relations.dict'),
-                                             os.path.join(self.path, 'train.txt'),
-                                             os.path.join(self.path, 'valid.txt'),
-                                             os.path.join(self.path, 'test.txt'))
+        super(KGDatasetFB15k, self).__init__(
+            os.path.join(self.path, 'entities.dict'),
+            os.path.join(self.path, 'relations.dict'),
+            os.path.join(self.path, 'train.txt'),
+            os.path.join(self.path, 'valid.txt'),
+            os.path.join(self.path, 'test.txt'))
 
     @property
     def emap_fname(self):
@@ -238,21 +251,44 @@ class KGDatasetWiki(KGDataset):
     '''Load a knowledge graph wikikg
     '''
 
-    def __init__(self, path, name='wikikg90m', test_mode='test-dev'):
+    def __init__(self, args, path, name='wikikg90m'):
         self.name = name
-        self.dataset = WikiKG90Mv2Dataset(path)
-        self.train = self.dataset.train_hrt.T
+        self.dataset = WikiKG90MDataset(path)
+        if args.eval_percent != 1.:
+            num_valid = len(self.dataset.valid_dict['h,r->t']['hr'])
+            num_valid = int(num_valid * args.eval_percent)
+            self.dataset.valid_dict['h,r->t']['hr'] = self.dataset.valid_dict[
+                'h,r->t']['hr'][:num_valid]
+            self.dataset.valid_dict['h,r->t'][
+                't_candidate'] = self.dataset.valid_dict['h,r->t'][
+                    't_candidate'][:num_valid]
+            self.dataset.valid_dict['h,r->t'][
+                't_correct_index'] = self.dataset.valid_dict['h,r->t'][
+                    't_correct_index'][:num_valid]
+            print("num_valid", num_valid)
+        if args.test_percent != 1.:
+            num_test = len(self.dataset.test_dict['h,r->t']['hr'])
+            num_test = int(num_test * args.test_percent)
+            self.dataset.test_dict['h,r->t']['hr'] = self.dataset.test_dict[
+                'h,r->t']['hr'][:num_test]
+            self.dataset.test_dict['h,r->t'][
+                't_candidate'] = self.dataset.test_dict['h,r->t'][
+                    't_candidate'][:num_test]
+            print("num_test", num_test)
+        if args.train_percent != 1.:
+            num_train = self.dataset.train_hrt.shape[0]
+            num_train = int(num_train * args.train_percent)
+            print("num_train", num_train)
+            self.train = self.dataset.train_hrt.T[:, :num_train]
+        else:
+            self.train = self.dataset.train_hrt.T
+
         self.n_entities = self.dataset.num_entities
         self.n_relations = self.dataset.num_relations
         self.valid = None
         self.test = None
         self.valid_dict = self.dataset.valid_dict
-        self.valid_dict['h,r->t']['t_candidate'] = np.load(os.path.join(path, 'wikikg90m-v2', 'processed', 'val_t_candidate.npy'))
-        self.test_dict = self.dataset.test_dict(test_mode)
-        if test_mode == 'test-dev':
-            self.test_dict['h,r->t']['t_candidate'] = np.load(os.path.join(path, 'wikikg90m-v2', 'processed', 'test_t_candidate.npy'))
-        else:
-            self.test_dict['h,r->t']['t_candidate'] = np.load(os.path.join(path, 'wikikg90m-v2', 'processed', 'test_t_candidate.npy'))
+        self.test_dict = self.dataset.test_dict
         self.entity_feat = self.dataset.entity_feat
         self.relation_feat = self.dataset.relation_feat
         if 't,r->h' in self.valid_dict:
@@ -289,12 +325,16 @@ class KGDatasetToy(KGDataset):
         self.n_entities = 10000
         self.n_relations = 15
         self.train = pickle.load(open(os.path.join(path, "train.pkl"), 'rb'))
-        self.valid_dict = pickle.load(open(os.path.join(path, "valid.pkl"), 'rb'))
-        self.test_dict = pickle.load(open(os.path.join(path, "test.pkl"), 'rb'))
+        self.valid_dict = pickle.load(
+            open(os.path.join(path, "valid.pkl"), 'rb'))
+        self.test_dict = pickle.load(
+            open(os.path.join(path, "test.pkl"), 'rb'))
         self.valid = None
         self.test = None
-        self.entity_feat = pickle.load(open(os.path.join(path, "entity_feat.pkl"), 'rb'))
-        self.relation_feat = pickle.load(open(os.path.join(path, "relation_feat.pkl"), 'rb'))
+        self.entity_feat = pickle.load(
+            open(os.path.join(path, "entity_feat.pkl"), 'rb'))
+        self.relation_feat = pickle.load(
+            open(os.path.join(path, "relation_feat.pkl"), 'rb'))
         if 't,r->h' in self.valid_dict:
             del self.valid_dict['t,r->h']
         if 't,r->h' in self.test_dict:
@@ -332,11 +372,12 @@ class KGDatasetFB15k237(KGDataset):
             _download_and_extract(url, path, name + '.zip')
         self.path = os.path.join(path, name)
 
-        super(KGDatasetFB15k237, self).__init__(os.path.join(self.path, 'entities.dict'),
-                                                os.path.join(self.path, 'relations.dict'),
-                                                os.path.join(self.path, 'train.txt'),
-                                                os.path.join(self.path, 'valid.txt'),
-                                                os.path.join(self.path, 'test.txt'))
+        super(KGDatasetFB15k237, self).__init__(
+            os.path.join(self.path, 'entities.dict'),
+            os.path.join(self.path, 'relations.dict'),
+            os.path.join(self.path, 'train.txt'),
+            os.path.join(self.path, 'valid.txt'),
+            os.path.join(self.path, 'test.txt'))
 
     @property
     def emap_fname(self):
@@ -370,11 +411,12 @@ class KGDatasetWN18(KGDataset):
             _download_and_extract(url, path, name + '.zip')
         self.path = os.path.join(path, name)
 
-        super(KGDatasetWN18, self).__init__(os.path.join(self.path, 'entities.dict'),
-                                            os.path.join(self.path, 'relations.dict'),
-                                            os.path.join(self.path, 'train.txt'),
-                                            os.path.join(self.path, 'valid.txt'),
-                                            os.path.join(self.path, 'test.txt'))
+        super(KGDatasetWN18, self).__init__(
+            os.path.join(self.path, 'entities.dict'),
+            os.path.join(self.path, 'relations.dict'),
+            os.path.join(self.path, 'train.txt'),
+            os.path.join(self.path, 'valid.txt'),
+            os.path.join(self.path, 'test.txt'))
 
     @property
     def emap_fname(self):
@@ -408,11 +450,12 @@ class KGDatasetWN18rr(KGDataset):
             _download_and_extract(url, path, name + '.zip')
         self.path = os.path.join(path, name)
 
-        super(KGDatasetWN18rr, self).__init__(os.path.join(self.path, 'entities.dict'),
-                                              os.path.join(self.path, 'relations.dict'),
-                                              os.path.join(self.path, 'train.txt'),
-                                              os.path.join(self.path, 'valid.txt'),
-                                              os.path.join(self.path, 'test.txt'))
+        super(KGDatasetWN18rr, self).__init__(
+            os.path.join(self.path, 'entities.dict'),
+            os.path.join(self.path, 'relations.dict'),
+            os.path.join(self.path, 'train.txt'),
+            os.path.join(self.path, 'valid.txt'),
+            os.path.join(self.path, 'test.txt'))
 
     @property
     def emap_fname(self):
@@ -446,11 +489,12 @@ class KGDatasetFreebase(KGDataset):
             _download_and_extract(url, path, '{}.zip'.format(name))
         self.path = os.path.join(path, name)
 
-        super(KGDatasetFreebase, self).__init__(os.path.join(self.path, 'entity2id.txt'),
-                                                os.path.join(self.path, 'relation2id.txt'),
-                                                os.path.join(self.path, 'train.txt'),
-                                                os.path.join(self.path, 'valid.txt'),
-                                                os.path.join(self.path, 'test.txt'))
+        super(KGDatasetFreebase, self).__init__(
+            os.path.join(self.path, 'entity2id.txt'),
+            os.path.join(self.path, 'relation2id.txt'),
+            os.path.join(self.path, 'train.txt'),
+            os.path.join(self.path, 'valid.txt'),
+            os.path.join(self.path, 'test.txt'))
 
     def read_entity(self, entity_path):
         with open(entity_path) as f_ent:
@@ -506,7 +550,13 @@ class KGDatasetUDDRaw(KGDataset):
     other than \t.
     '''
 
-    def __init__(self, path, name, delimiter, files, format, has_edge_importance=False):
+    def __init__(self,
+                 path,
+                 name,
+                 delimiter,
+                 files,
+                 format,
+                 has_edge_importance=False):
         self.name = name
         for f in files:
             assert os.path.exists(os.path.join(path, f)), \
@@ -517,29 +567,31 @@ class KGDatasetUDDRaw(KGDataset):
         self.load_entity_relation(path, delimiter, files, format)
 
         assert len(files) == 1 or len(files) == 3, 'raw_udd_{htr} format requires 1 or 3 input files. '\
-            'When 1 files are provided, they must be train_file. '\
-            'When 3 files are provided, they must be train_file, valid_file and test_file.'
+                'When 1 files are provided, they must be train_file. '\
+                'When 3 files are provided, they must be train_file, valid_file and test_file.'
 
         if delimiter not in ['\t', '|', ',', ';']:
-            print('WARNING: delimiter {} is not in \'\\t\', \'|\', \',\', \';\''
+            print('WARNING: delimiter {} is not in \'\\t\', \'|\', \',\', \';\'' \
                   'This is not tested by the developer'.format(delimiter))
         self.has_edge_importance = has_edge_importance
         # Only train set is provided
         if len(files) == 1:
-            super(KGDatasetUDDRaw, self).__init__("entities.tsv",
-                                                  "relation.tsv",
-                                                  os.path.join(path, files[0]),
-                                                  format=format,
-                                                  delimiter=delimiter)
+            super(KGDatasetUDDRaw, self).__init__(
+                "entities.tsv",
+                "relation.tsv",
+                os.path.join(path, files[0]),
+                format=format,
+                delimiter=delimiter)
         # Train, validation and test set are provided
         elif len(files) == 3:
-            super(KGDatasetUDDRaw, self).__init__("entities.tsv",
-                                                  "relation.tsv",
-                                                  os.path.join(path, files[0]),
-                                                  os.path.join(path, files[1]),
-                                                  os.path.join(path, files[2]),
-                                                  format=format,
-                                                  delimiter=delimiter)
+            super(KGDatasetUDDRaw, self).__init__(
+                "entities.tsv",
+                "relation.tsv",
+                os.path.join(path, files[0]),
+                os.path.join(path, files[1]),
+                os.path.join(path, files[2]),
+                format=format,
+                delimiter=delimiter)
 
     def read_triple(self, path, mode, skip_first_line=False, format=[0, 1, 2]):
         # mode: train/valid/test
@@ -556,7 +608,8 @@ class KGDatasetUDDRaw(KGDataset):
                 _ = f.readline()
             for line in f:
                 triple = line.strip().split(self.delimiter)
-                h, r, t = triple[format[0]], triple[format[1]], triple[format[2]]
+                h, r, t = triple[format[0]], triple[format[1]], triple[format[
+                    2]]
                 heads.append(self.entity2id[h])
                 rels.append(self.relation2id[r])
                 tails.append(self.entity2id[t])
@@ -582,18 +635,25 @@ class KGDatasetUDDRaw(KGDataset):
             with open(os.path.join(path, fi)) as f:
                 for line in f:
                     triple = line.strip().split(delimiter)
-                    src, rel, dst = triple[format[0]], triple[format[1]], triple[format[2]]
+                    src, rel, dst = triple[format[0]], triple[format[
+                        1]], triple[format[2]]
                     src_id = _get_id(entity_map, src)
                     dst_id = _get_id(entity_map, dst)
                     rel_id = _get_id(rel_map, rel)
 
-        entities = ["{}{}{}\n".format(val, delimiter, key) for key, val in entity_map.items()]
+        entities = [
+            "{}{}{}\n".format(val, delimiter, key)
+            for key, val in entity_map.items()
+        ]
         with open(os.path.join(path, "entities.tsv"), "w+") as f:
             f.writelines(entities)
         self.entity2id = entity_map
         self.n_entities = len(entities)
 
-        relations = ["{}{}{}\n".format(val, delimiter, key) for key, val in rel_map.items()]
+        relations = [
+            "{}{}{}\n".format(val, delimiter, key)
+            for key, val in rel_map.items()
+        ]
         with open(os.path.join(path, "relations.tsv"), "w+") as f:
             f.writelines(relations)
         self.relation2id = rel_map
@@ -629,7 +689,13 @@ class KGDatasetUDD(KGDataset):
     other than \t.
     '''
 
-    def __init__(self, path, name, delimiter, files, format, has_edge_importance=False):
+    def __init__(self,
+                 path,
+                 name,
+                 delimiter,
+                 files,
+                 format,
+                 has_edge_importance=False):
         self.name = name
         for f in files:
             assert os.path.exists(os.path.join(path, f)), \
@@ -637,28 +703,31 @@ class KGDatasetUDD(KGDataset):
 
         format = _parse_srd_format(format)
         assert len(files) == 3 or len(files) == 5, 'udd_{htr} format requires 3 or 5 input files. '\
-            'When 3 files are provided, they must be entity2id, relation2id, train_file. '\
-            'When 5 files are provided, they must be entity2id, relation2id, train_file, valid_file and test_file.'
+                'When 3 files are provided, they must be entity2id, relation2id, train_file. '\
+                'When 5 files are provided, they must be entity2id, relation2id, train_file, valid_file and test_file.'
 
         if delimiter not in ['\t', '|', ',', ';']:
-            print('WARNING: delimiter {} is not in \'\\t\', \'|\', \',\', \';\''
+            print('WARNING: delimiter {} is not in \'\\t\', \'|\', \',\', \';\'' \
                   'This is not tested by the developer'.format(delimiter))
         self.has_edge_importance = has_edge_importance
         if len(files) == 3:
-            super(KGDatasetUDD, self).__init__(os.path.join(path, files[0]),
-                                               os.path.join(path, files[1]),
-                                               os.path.join(path, files[2]),
-                                               None, None,
-                                               format=format,
-                                               delimiter=delimiter)
+            super(KGDatasetUDD, self).__init__(
+                os.path.join(path, files[0]),
+                os.path.join(path, files[1]),
+                os.path.join(path, files[2]),
+                None,
+                None,
+                format=format,
+                delimiter=delimiter)
         elif len(files) == 5:
-            super(KGDatasetUDD, self).__init__(os.path.join(path, files[0]),
-                                               os.path.join(path, files[1]),
-                                               os.path.join(path, files[2]),
-                                               os.path.join(path, files[3]),
-                                               os.path.join(path, files[4]),
-                                               format=format,
-                                               delimiter=delimiter)
+            super(KGDatasetUDD, self).__init__(
+                os.path.join(path, files[0]),
+                os.path.join(path, files[1]),
+                os.path.join(path, files[2]),
+                os.path.join(path, files[3]),
+                os.path.join(path, files[4]),
+                format=format,
+                delimiter=delimiter)
         self.emap_file = files[0]
         self.rmap_file = files[1]
 
@@ -687,7 +756,8 @@ class KGDatasetUDD(KGDataset):
                 _ = f.readline()
             for line in f:
                 triple = line.strip().split(self.delimiter)
-                h, r, t = triple[format[0]], triple[format[1]], triple[format[2]]
+                h, r, t = triple[format[0]], triple[format[1]], triple[format[
+                    2]]
                 try:
                     heads.append(int(h))
                     tails.append(int(t))
@@ -695,7 +765,7 @@ class KGDatasetUDD(KGDataset):
                     if self.has_edge_importance:
                         e_impts.append(float(triple[3]))
                 except ValueError:
-                    print("For User Defined Dataset, both node ids and relation ids in the "
+                    print("For User Defined Dataset, both node ids and relation ids in the " \
                           "triplets should be int other than {}\t{}\t{}".format(h, r, t))
                     raise
         heads = np.array(heads, dtype=np.int64)
@@ -728,7 +798,13 @@ class KGDatasetUDD(KGDataset):
         return self.rmap_file
 
 
-def get_dataset(data_path, data_name, format_str, delimiter='\t', files=None, has_edge_importance=False, test_mode='test-dev'):
+def get_dataset(args,
+                data_path,
+                data_name,
+                format_str,
+                delimiter='\t',
+                files=None,
+                has_edge_importance=False):
     if format_str == 'built_in':
         if data_name == 'Freebase':
             dataset = KGDatasetFreebase(data_path)
@@ -741,21 +817,21 @@ def get_dataset(data_path, data_name, format_str, delimiter='\t', files=None, ha
         elif data_name == 'wn18rr':
             dataset = KGDatasetWN18rr(data_path)
         elif data_name == 'wikikg90m':
-            print(data_path)
-            dataset = KGDatasetWiki(data_path, test_mode=test_mode)
+            dataset = KGDatasetWiki(args, data_path)
         else:
             assert False, "Unknown dataset {}".format(data_name)
     elif format_str.startswith('raw_udd'):
         # user defined dataset
         assert data_name != 'FB15k', 'You should provide the dataset name for raw_udd format.'
         format = format_str[8:]
-        dataset = KGDatasetUDDRaw(data_path, data_name, delimiter,
-                                  files, format, has_edge_importance)
+        dataset = KGDatasetUDDRaw(data_path, data_name, delimiter, files,
+                                  format, has_edge_importance)
     elif format_str.startswith('udd'):
         # user defined dataset
         assert data_name != 'FB15k', 'You should provide the dataset name for udd format.'
         format = format_str[4:]
-        dataset = KGDatasetUDD(data_path, data_name, delimiter, files, format, has_edge_importance)
+        dataset = KGDatasetUDD(data_path, data_name, delimiter, files, format,
+                               has_edge_importance)
     else:
         assert False, "Unknown format {}".format(format_str)
 
@@ -763,7 +839,7 @@ def get_dataset(data_path, data_name, format_str, delimiter='\t', files=None, ha
 
 
 def get_partition_dataset(data_path, data_name, part_id):
-    part_name = os.path.join(data_name, 'partition_'+str(part_id))
+    part_name = os.path.join(data_name, 'partition_' + str(part_id))
     path = os.path.join(data_path, part_name)
 
     if not os.path.exists(path):
@@ -775,10 +851,8 @@ def get_partition_dataset(data_path, data_name, part_id):
     partition_book_path = os.path.join(path, 'partition_book.txt')
     relation_path = os.path.join(path, 'relation_count.txt')
 
-    dataset = PartitionKGDataset(relation_path,
-                                 train_path,
-                                 local2global_path,
-                                 read_triple=True)
+    dataset = PartitionKGDataset(
+        relation_path, train_path, local2global_path, read_triple=True)
 
     partition_book = []
     with open(partition_book_path) as f:
@@ -794,7 +868,7 @@ def get_partition_dataset(data_path, data_name, part_id):
 
 
 def get_server_partition_dataset(data_path, data_name, part_id):
-    part_name = os.path.join(data_name, 'partition_'+str(part_id))
+    part_name = os.path.join(data_name, 'partition_' + str(part_id))
     path = os.path.join(data_path, part_name)
 
     if not os.path.exists(path):
@@ -805,10 +879,8 @@ def get_server_partition_dataset(data_path, data_name, part_id):
     local2global_path = os.path.join(path, 'local_to_global.txt')
     relation_path = os.path.join(path, 'relation_count.txt')
 
-    dataset = PartitionKGDataset(relation_path,
-                                 train_path,
-                                 local2global_path,
-                                 read_triple=False)
+    dataset = PartitionKGDataset(
+        relation_path, train_path, local2global_path, read_triple=False)
 
     n_entities = _file_line(os.path.join(path, 'partition_book.txt'))
 

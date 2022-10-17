@@ -28,9 +28,11 @@ import numpy as np
 def get_compatible_batch_size(batch_size, neg_sample_size):
     if neg_sample_size < batch_size and batch_size % neg_sample_size != 0:
         old_batch_size = batch_size
-        batch_size = int(math.ceil(batch_size / neg_sample_size) * neg_sample_size)
-        print('batch size ({}) is incompatible to the negative sample size ({}). Change the batch size to {}'.format(
-            old_batch_size, neg_sample_size, batch_size))
+        batch_size = int(
+            math.ceil(batch_size / neg_sample_size) * neg_sample_size)
+        print(
+            'batch size ({}) is incompatible to the negative sample size ({}). Change the batch size to {}'.
+            format(old_batch_size, neg_sample_size, batch_size))
     return batch_size
 
 
@@ -45,8 +47,7 @@ def save_model(args, model, emap_file=None, rmap_file=None):
     dict = {}
     config = args
     dict.update(vars(config))
-    dict.update({'emp_file': emap_file,
-                 'rmap_file': rmap_file})
+    dict.update({'emp_file': emap_file, 'rmap_file': rmap_file})
     with open(conf_file, 'w') as outfile:
         json.dump(dict, outfile, indent=4)
 
@@ -61,7 +62,11 @@ def load_model_config(config_f):
     return config
 
 
-def load_raw_triplet_data(head_f=None, rel_f=None, tail_f=None, emap_f=None, rmap_f=None):
+def load_raw_triplet_data(head_f=None,
+                          rel_f=None,
+                          tail_f=None,
+                          emap_f=None,
+                          rmap_f=None):
     if emap_f is not None:
         eid_map = {}
         id2e_map = {}
@@ -207,102 +212,203 @@ class CommonArgParser(argparse.ArgumentParser):
     def __init__(self):
         super(CommonArgParser, self).__init__()
 
-        self.add_argument('--model_name', default='TransE',
-                          choices=['TransE', 'TransE_l1', 'TransE_l2', 'TransR',
-                                   'RESCAL', 'DistMult', 'ComplEx', 'RotatE',
-                                   'SimplE', 'PairRE', 'PairRotatE'],
-                          help='The models provided by DGL-KE.')
-        self.add_argument('--data_path', type=str, default='data',
-                          help='The path of the directory where DGL-KE loads knowledge graph data.')
-        self.add_argument('--dataset', type=str, default='wikikg90m',
-                          help='The name of the builtin knowledge graph. Currently, it only supports wikikg90m')
+        self.add_argument(
+            '--model_name',
+            default='TransE',
+            choices=[
+                'TransE', 'TransE_l1', 'TransE_l2', 'TransR', 'RESCAL',
+                'DistMult', 'ComplEx', 'RotatE', 'SimplE', 'Auto', 'OTE'
+            ],
+            help='The models provided by DGL-KE.')
+        self.add_argument(
+            '--data_path',
+            type=str,
+            default='data',
+            help='The path of the directory where DGL-KE loads knowledge graph data.'
+        )
+        self.add_argument(
+            '--dataset',
+            type=str,
+            default='wikikg90m',
+            help='The name of the builtin knowledge graph. Currently, it only supports wikikg90m'
+        )
         self.add_argument('--format', type=str, default='built_in',
-                          help='The format of the dataset. For builtin knowledge graphs,'
-                          'the foramt should be built_in. For users own knowledge graphs,'
-                          'it needs to be raw_udd_{htr} or udd_{htr}.')
+                          help='The format of the dataset. For builtin knowledge graphs,'\
+                                  'the foramt should be built_in. For users own knowledge graphs,'\
+                                  'it needs to be raw_udd_{htr} or udd_{htr}.')
         self.add_argument('--data_files', type=str, default=None, nargs='+',
-                          help='A list of data file names. This is used if users want to train KGE'
-                          'on their own datasets. If the format is raw_udd_{htr},'
-                          'users need to provide train_file [valid_file] [test_file].'
-                          'If the format is udd_{htr}, users need to provide'
-                          'entity_file relation_file train_file [valid_file] [test_file].'
-                          'In both cases, valid_file and test_file are optional.')
-        self.add_argument('--delimiter', type=str, default='\t',
-                          help='Delimiter used in data files. Note all files should use the same delimiter.')
-        self.add_argument('--save_path', type=str, default='ckpts',
-                          help='the path of the directory where models and logs are saved.')
-        self.add_argument('--no_save_emb', action='store_true',
-                          help='Disable saving the embeddings under save_path.')
+                          help='A list of data file names. This is used if users want to train KGE'\
+                                  'on their own datasets. If the format is raw_udd_{htr},'\
+                                  'users need to provide train_file [valid_file] [test_file].'\
+                                  'If the format is udd_{htr}, users need to provide'\
+                                  'entity_file relation_file train_file [valid_file] [test_file].'\
+                                  'In both cases, valid_file and test_file are optional.')
+        self.add_argument(
+            '--delimiter',
+            type=str,
+            default='\t',
+            help='Delimiter used in data files. Note all files should use the same delimiter.'
+        )
+        self.add_argument(
+            '--save_path',
+            type=str,
+            default='ckpts',
+            help='the path of the directory where models and logs are saved.')
+        self.add_argument(
+            '--no_save_emb',
+            action='store_true',
+            help='Disable saving the embeddings under save_path.')
         self.add_argument('--max_step', type=int, default=1000000,
-                          help='The maximal number of steps to train the model.'
-                          'A step trains the model with a batch of data.')
-        self.add_argument('--batch_size', type=int, default=400,
-                          help='The batch size for training.')
-        self.add_argument('--batch_size_eval', type=int, default=50,
-                          help='The batch size used for validation and test.')
-        self.add_argument('--neg_sample_size', type=int, default=100,
-                          help='The number of negative samples we use for each positive sample in the training.')
+                          help='The maximal number of steps to train the model.'\
+                                  'A step trains the model with a batch of data.')
+        self.add_argument(
+            '--batch_size',
+            type=int,
+            default=400,
+            help='The batch size for training.')
+        self.add_argument(
+            '--batch_size_eval',
+            type=int,
+            default=50,
+            help='The batch size used for validation and test.')
+        self.add_argument(
+            '--neg_sample_size',
+            type=int,
+            default=100,
+            help='The number of negative samples we use for each positive sample in the training.'
+        )
         self.add_argument('--neg_deg_sample', action='store_true',
-                          help='Construct negative samples proportional to vertex degree in the training.'
-                          'When this option is turned on, the number of negative samples per positive edge'
-                          'will be doubled. Half of the negative samples are generated uniformly while'
-                          'the other half are generated proportional to vertex degree.')
-        self.add_argument('--neg_deg_sample_eval', action='store_true',
-                          help='Construct negative samples proportional to vertex degree in the evaluation.')
-        self.add_argument('--neg_sample_size_eval', type=int, default=1000,
-                          help='The number of negative samples we use to evaluate a positive sample.')
-        self.add_argument('--eval_percent', type=float, default=1,
-                          help='Randomly sample some percentage of edges for evaluation.')
-        self.add_argument('--no_eval_filter', action='store_true',
-                          help='Disable filter positive edges from randomly constructed negative edges for evaluation')
-        self.add_argument('-log', '--log_interval', type=int, default=1000,
-                          help='Print runtime of different components every x steps.')
+                          help='Construct negative samples proportional to vertex degree in the training.'\
+                                  'When this option is turned on, the number of negative samples per positive edge'\
+                                  'will be doubled. Half of the negative samples are generated uniformly while'\
+                                  'the other half are generated proportional to vertex degree.')
+        self.add_argument(
+            '--neg_deg_sample_eval',
+            action='store_true',
+            help='Construct negative samples proportional to vertex degree in the evaluation.'
+        )
+        self.add_argument(
+            '--neg_sample_size_eval',
+            type=int,
+            default=1000,
+            help='The number of negative samples we use to evaluate a positive sample.'
+        )
+        self.add_argument(
+            '--save_threshold',
+            type=float,
+            default=0.85,
+            help='save threshold for mrr.')
+        self.add_argument(
+            '--eval_percent',
+            type=float,
+            default=0.1,
+            help='Randomly sample some percentage of edges for evaluation.')
+        self.add_argument(
+            '--test_percent',
+            type=float,
+            default=1.0,
+            help='Randomly sample some percentage of edges for test.')
+        self.add_argument(
+            '--no_eval_filter',
+            action='store_true',
+            help='Disable filter positive edges from randomly constructed negative edges for evaluation'
+        )
+        self.add_argument(
+            '-log',
+            '--log_interval',
+            type=int,
+            default=1000,
+            help='Print runtime of different components every x steps.')
         self.add_argument('--eval_interval', type=int, default=50000,
-                          help='Print evaluation results on the validation dataset every x steps'
-                          'if validation is turned on')
-        self.add_argument('--test', action='store_true',
-                          help='Evaluate the model on the test set after the model is trained.')
+                          help='Print evaluation results on the validation dataset every x steps'\
+                                  'if validation is turned on')
+        self.add_argument(
+            '--test',
+            action='store_true',
+            help='Evaluate the model on the test set after the model is trained.'
+        )
         self.add_argument('--num_proc', type=int, default=1,
-                          help='The number of processes to train the model in parallel.'
-                          'In multi-GPU training, the number of processes by default is set to match the number of GPUs.'
-                          'If set explicitly, the number of processes needs to be divisible by the number of GPUs.')
+                          help='The number of processes to train the model in parallel.'\
+                                  'In multi-GPU training, the number of processes by default is set to match the number of GPUs.'\
+                                  'If set explicitly, the number of processes needs to be divisible by the number of GPUs.')
         self.add_argument('--num_thread', type=int, default=1,
-                          help='The number of CPU threads to train the model in each process.'
-                          'This argument is used for multiprocessing training.')
+                          help='The number of CPU threads to train the model in each process.'\
+                                  'This argument is used for multiprocessing training.')
         self.add_argument('--force_sync_interval', type=int, default=-1,
-                          help='We force a synchronization between processes every x steps for'
-                          'multiprocessing training. This potentially stablizes the training process'
-                          'to get a better performance. For multiprocessing training, it is set to 1000 by default.')
-        self.add_argument('--hidden_dim', type=int, default=400,
-                          help='The embedding size of relation and entity')
-        self.add_argument('--feat_hidden_dim', type=int, default=100,
-                          help='The embedding size of relation and entity')
-        self.add_argument('--lr', type=float, default=0.01,
-                          help='The learning rate. DGL-KE uses Adagrad to optimize the model parameters.')
-        self.add_argument('-g', '--gamma', type=float, default=12.0,
-                          help='The margin value in the score function. It is used by TransX and RotatE.')
-        self.add_argument('-de', '--double_ent', action='store_true',
-                          help='Double entitiy dim for complex number or canonical polyadic. It is used by RotatE and SimplE.')
-        self.add_argument('-dr', '--double_rel', action='store_true',
-                          help='Double relation dim for complex number or canonical polyadic. It is used by RotatE and SimplE')
+                          help='We force a synchronization between processes every x steps for'\
+                                  'multiprocessing training. This potentially stablizes the training process'
+                                  'to get a better performance. For multiprocessing training, it is set to 1000 by default.')
+        self.add_argument(
+            '--hidden_dim',
+            type=int,
+            default=400,
+            help='The embedding size of relation and entity')
+        self.add_argument(
+            '--lr',
+            type=float,
+            default=0.01,
+            help='The learning rate. DGL-KE uses Adagrad to optimize the model parameters.'
+        )
+        self.add_argument(
+            '-g',
+            '--gamma',
+            type=float,
+            default=12.0,
+            help='The margin value in the score function. It is used by TransX and RotatE.'
+        )
+        self.add_argument(
+            '-de',
+            '--double_ent',
+            action='store_true',
+            help='Double entitiy dim for complex number or canonical polyadic. It is used by RotatE and SimplE.'
+        )
+        self.add_argument(
+            '-dr',
+            '--double_rel',
+            action='store_true',
+            help='Double relation dim for complex number or canonical polyadic. It is used by RotatE and SimplE'
+        )
         self.add_argument('-adv', '--neg_adversarial_sampling', action='store_true',
-                          help='Indicate whether to use negative adversarial sampling.'
+                          help='Indicate whether to use negative adversarial sampling.'\
                                   'It will weight negative samples with higher scores more.')
-        self.add_argument('-a', '--adversarial_temperature', default=1.0, type=float,
-                          help='The temperature used for negative adversarial sampling.')
-        self.add_argument('-rc', '--regularization_coef', type=float, default=0.000002,
-                          help='The coefficient for regularization.')
-        self.add_argument('-rn', '--regularization_norm', type=int, default=3,
-                          help='norm used in regularization.')
-        self.add_argument('-pw', '--pairwise', action='store_true',
-                          help='Indicate whether to use pairwise loss function. '
-                               'It compares the scores of a positive triple and a negative triple')
-        self.add_argument('--loss_genre', default='Logsigmoid',
-                          choices=['Hinge', 'Logistic', 'Logsigmoid', 'BCE'],
-                          help='The loss function used to train KGEM.')
-        self.add_argument('-m', '--margin', type=float, default=1.0,
-                          help='hyper-parameter for hinge loss.')
-        self.add_argument('--LRE', action='store_true',
-                          help='Enable low rank approximation for entity embeddings.')
-        self.add_argument('--LRE_rank', type=int, default=200,
-                          help='Rank of the two low-rank matrixs for approximating entitiy embedding matrix')
+        self.add_argument(
+            '-a',
+            '--adversarial_temperature',
+            default=1.0,
+            type=float,
+            help='The temperature used for negative adversarial sampling.')
+        self.add_argument(
+            '-rc',
+            '--regularization_coef',
+            type=float,
+            default=0.000002,
+            help='The coefficient for regularization.')
+        self.add_argument(
+            '-rn',
+            '--regularization_norm',
+            type=int,
+            default=3,
+            help='norm used in regularization.')
+        self.add_argument(
+            '-pw',
+            '--pairwise',
+            action='store_true',
+            help='Indicate whether to use pairwise loss function. '
+            'It compares the scores of a positive triple and a negative triple')
+        self.add_argument(
+            '--loss_genre',
+            default='Logsigmoid',
+            choices=['Hinge', 'Logistic', 'Logsigmoid', 'BCE'],
+            help='The loss function used to train KGEM.')
+        self.add_argument(
+            '-m',
+            '--margin',
+            type=float,
+            default=1.0,
+            help='hyper-parameter for hinge loss.')
+        self.add_argument('--scale_type', type=int, default=2)
+        self.add_argument('--ote_size', type=int, default=20)
+        self.add_argument('--train_percent', type=float, default=1.0)
+        self.add_argument('--lr_decay_rate', type=float, default=None, help='')
+        self.add_argument(
+            '--lr_decay_interval', type=int, default=10000, help='')

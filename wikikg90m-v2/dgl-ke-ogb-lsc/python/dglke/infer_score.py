@@ -24,11 +24,15 @@ import argparse
 from .utils import load_model_config, load_raw_triplet_data, load_triplet_data
 from .models.infer import ScoreInfer
 
+
 class ArgParser(argparse.ArgumentParser):
     def __init__(self):
         super(ArgParser, self).__init__()
-        self.add_argument('--model_path', type=str, default='ckpts',
-                          help='the place where to load the model')
+        self.add_argument(
+            '--model_path',
+            type=str,
+            default='ckpts',
+            help='the place where to load the model')
         self.add_argument('--format', type=str,
                           help='The format of input data'\
                                 'h_r_t: all lists of head, relation and tail are provied.\n' \
@@ -61,20 +65,36 @@ class ArgParser(argparse.ArgumentParser):
                                     'result = topK([[score(h_i, r_j, t_k) for each h_i in H] for each t_k in T]) for each r_j in R, the result shape will be (sizeof(R), K)\n' \
                                'batch_tail: three lists of head, relation and tail ids are provided as H, R and T, and we calculate topK for each element in tail:' \
                                     'result = topK([[score(h_i, r_j, t_k) for each h_i in H] for each r_j in R]) for each t_k in T, the result shape will be (sizeof(T), K)\n')
-        self.add_argument('--topK', type=int, default=10,
-                          help='How many results are returned')
+        self.add_argument(
+            '--topK',
+            type=int,
+            default=10,
+            help='How many results are returned')
         self.add_argument('--score_func', type=str, default='none',
                           help='What kind of score is used in ranking and will be output: \n' \
                                 'none: $score = x$ \n'
                                 'logsigmoid: $score = log(sigmoid(x))$')
-        self.add_argument('--output', type=str, default='result.tsv',
-                          help='Where to store the result, should be a single file')
-        self.add_argument('--entity_mfile', type=str, default=None,
-                          help='Entity ID mapping file name. Required if Raw ID is used.')
-        self.add_argument('--rel_mfile', type=str, default=None,
-                          help='Relation ID mapping file name. Required if Raw ID is used.')
-        self.add_argument('--gpu', type=int, default=-1,
-                          help='GPU device to use in inference, -1 means CPU')
+        self.add_argument(
+            '--output',
+            type=str,
+            default='result.tsv',
+            help='Where to store the result, should be a single file')
+        self.add_argument(
+            '--entity_mfile',
+            type=str,
+            default=None,
+            help='Entity ID mapping file name. Required if Raw ID is used.')
+        self.add_argument(
+            '--rel_mfile',
+            type=str,
+            default=None,
+            help='Relation ID mapping file name. Required if Raw ID is used.')
+        self.add_argument(
+            '--gpu',
+            type=int,
+            default=-1,
+            help='GPU device to use in inference, -1 means CPU')
+
 
 def main():
     args = ArgParser().parse_args()
@@ -93,15 +113,17 @@ def main():
                 'rel_mfile should be provided.'
             assert len(data_files) == 3, 'When using h_r_t, head.list, rel.list and tail.list ' \
                 'should be provided.'
-            head, rel, tail, id2e_map, id2r_map = load_raw_triplet_data(head_f=data_files[0],
-                                                                        rel_f=data_files[1],
-                                                                        tail_f=data_files[2],
-                                                                        emap_f=emap_file,
-                                                                        rmap_f=rmap_file)
+            head, rel, tail, id2e_map, id2r_map = load_raw_triplet_data(
+                head_f=data_files[0],
+                rel_f=data_files[1],
+                tail_f=data_files[2],
+                emap_f=emap_file,
+                rmap_f=rmap_file)
         else:
-            head, rel, tail = load_triplet_data(head_f=data_files[0],
-                                                rel_f=data_files[1],
-                                                tail_f=data_files[2])
+            head, rel, tail = load_triplet_data(
+                head_f=data_files[0],
+                rel_f=data_files[1],
+                tail_f=data_files[2])
 
     elif args.format == 'h_r_*':
         if args.raw_data:
@@ -111,15 +133,15 @@ def main():
                 'rel_mfile should be provided.'
             assert len(data_files) == 2, 'When using h_r_*, head.list and rel.list ' \
                 'should be provided.'
-            head, rel, tail, id2e_map, id2r_map = load_raw_triplet_data(head_f=data_files[0],
-                                                                        rel_f=data_files[1],
-                                                                        tail_f=None,
-                                                                        emap_f=emap_file,
-                                                                        rmap_f=rmap_file)
+            head, rel, tail, id2e_map, id2r_map = load_raw_triplet_data(
+                head_f=data_files[0],
+                rel_f=data_files[1],
+                tail_f=None,
+                emap_f=emap_file,
+                rmap_f=rmap_file)
         else:
-            head, rel, tail = load_triplet_data(head_f=data_files[0],
-                                                rel_f=data_files[1],
-                                                tail_f=None)
+            head, rel, tail = load_triplet_data(
+                head_f=data_files[0], rel_f=data_files[1], tail_f=None)
 
     elif args.format == 'h_*_t':
         if args.raw_data:
@@ -129,15 +151,15 @@ def main():
                 'rel_mfile should be provided.'
             assert len(data_files) == 2, 'When using h_*_t, head.list and tail.list ' \
                 'should be provided.'
-            head, rel, tail, id2e_map, id2r_map = load_raw_triplet_data(head_f=data_files[0],
-                                                                        rel_f=None,
-                                                                        tail_f=data_files[1],
-                                                                        emap_f=emap_file,
-                                                                        rmap_f=rmap_file)
+            head, rel, tail, id2e_map, id2r_map = load_raw_triplet_data(
+                head_f=data_files[0],
+                rel_f=None,
+                tail_f=data_files[1],
+                emap_f=emap_file,
+                rmap_f=rmap_file)
         else:
-            head, rel, tail = load_triplet_data(head_f=data_files[0],
-                                                rel_f=None,
-                                                tail_f=data_files[1])
+            head, rel, tail = load_triplet_data(
+                head_f=data_files[0], rel_f=None, tail_f=data_files[1])
 
     elif args.format == '*_r_t':
         if args.raw_data:
@@ -147,15 +169,15 @@ def main():
                 'rel_mfile should be provided.'
             assert len(data_files) == 2, 'When using *_r_t rel.list and tail.list ' \
                 'should be provided.'
-            head, rel, tail, id2e_map, id2r_map = load_raw_triplet_data(head_f=None,
-                                                                        rel_f=data_files[0],
-                                                                        tail_f=data_files[1],
-                                                                        emap_f=emap_file,
-                                                                        rmap_f=rmap_file)
+            head, rel, tail, id2e_map, id2r_map = load_raw_triplet_data(
+                head_f=None,
+                rel_f=data_files[0],
+                tail_f=data_files[1],
+                emap_f=emap_file,
+                rmap_f=rmap_file)
         else:
-            head, rel, tail = load_triplet_data(head_f=None,
-                                                rel_f=data_files[0],
-                                                tail_f=data_files[1])
+            head, rel, tail = load_triplet_data(
+                head_f=None, rel_f=data_files[0], tail_f=data_files[1])
 
     elif args.format == 'h_*_*':
         if args.raw_data:
@@ -163,16 +185,18 @@ def main():
                 'entity_mfile should be provided.'
             assert rmap_file is not None, 'When using RAW ID through --raw_data, ' \
                 'rel_mfile should be provided.'
-            assert len(data_files) == 1, 'When using h_*_*, only head.list should be provided.'
-            head, rel, tail, id2e_map, id2r_map = load_raw_triplet_data(head_f=data_files[0],
-                                                                        rel_f=None,
-                                                                        tail_f=None,
-                                                                        emap_f=emap_file,
-                                                                        rmap_f=rmap_file)
+            assert len(
+                data_files
+            ) == 1, 'When using h_*_*, only head.list should be provided.'
+            head, rel, tail, id2e_map, id2r_map = load_raw_triplet_data(
+                head_f=data_files[0],
+                rel_f=None,
+                tail_f=None,
+                emap_f=emap_file,
+                rmap_f=rmap_file)
         else:
-            head, rel, tail = load_triplet_data(head_f=data_files[0],
-                                                rel_f=None,
-                                                tail_f=None)
+            head, rel, tail = load_triplet_data(
+                head_f=data_files[0], rel_f=None, tail_f=None)
 
     elif args.format == '*_r_*':
         if args.raw_data:
@@ -180,16 +204,18 @@ def main():
                 'entity_mfile should be provided.'
             assert rmap_file is not None, 'When using RAW ID through --raw_data, ' \
                 'rel_mfile should be provided.'
-            assert len(data_files) == 1, 'When using *_r_*, only rel.list should be provided.'
-            head, rel, tail, id2e_map, id2r_map = load_raw_triplet_data(head_f=None,
-                                                                        rel_f=data_files[0],
-                                                                        tail_f=None,
-                                                                        emap_f=emap_file,
-                                                                        rmap_f=rmap_file)
+            assert len(
+                data_files
+            ) == 1, 'When using *_r_*, only rel.list should be provided.'
+            head, rel, tail, id2e_map, id2r_map = load_raw_triplet_data(
+                head_f=None,
+                rel_f=data_files[0],
+                tail_f=None,
+                emap_f=emap_file,
+                rmap_f=rmap_file)
         else:
-            head, rel, tail = load_triplet_data(head_f=None,
-                                                rel_f=data_files[0],
-                                                tail_f=None)
+            head, rel, tail = load_triplet_data(
+                head_f=None, rel_f=data_files[0], tail_f=None)
 
     elif args.format == '*_*_t':
         if args.raw_data:
@@ -197,16 +223,18 @@ def main():
                 'entity_mfile should be provided.'
             assert rmap_file is not None, 'When using RAW ID through --raw_data, ' \
                 'rel_mfile should be provided.'
-            assert len(data_files) == 1, 'When using *_*_t, only tail.list should be provided.'
-            head, rel, tail, id2e_map, id2r_map = load_raw_triplet_data(head_f=None,
-                                                                        rel_f=None,
-                                                                        tail_f=data_files[0],
-                                                                        emap_f=emap_file,
-                                                                        rmap_f=rmap_file)
+            assert len(
+                data_files
+            ) == 1, 'When using *_*_t, only tail.list should be provided.'
+            head, rel, tail, id2e_map, id2r_map = load_raw_triplet_data(
+                head_f=None,
+                rel_f=None,
+                tail_f=data_files[0],
+                emap_f=emap_file,
+                rmap_f=rmap_file)
         else:
-            head, rel, tail = load_triplet_data(head_f=None,
-                                                rel_f=None,
-                                                tail_f=data_files[0])
+            head, rel, tail = load_triplet_data(
+                head_f=None, rel_f=None, tail_f=data_files[0])
 
     else:
         assert False, "Unsupported format {}".format(args.format)
@@ -232,6 +260,7 @@ def main():
                 f.write('{}\t{}\t{}\t{}\n'.format(h, r, t, s))
     print('Inference Done')
     print('The result is saved in {}'.format(args.output))
+
 
 if __name__ == '__main__':
     main()

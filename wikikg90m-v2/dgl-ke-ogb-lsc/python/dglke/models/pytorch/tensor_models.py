@@ -16,13 +16,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
 """
 KG Sparse embedding
 """
 import os
+import math
 import numpy as np
-
+import torch
 import torch as th
 import torch.nn as nn
 import torch.nn.functional as functional
@@ -52,14 +52,15 @@ def get_dev(gpu):
 
 
 def get_device(args):
-    return th.device('cpu') if args.gpu[0] < 0 else th.device('cuda:' + str(args.gpu[0]))
+    return th.device('cpu') if args.gpu[0] < 0 else th.device('cuda:' + str(
+        args.gpu[0]))
 
 
-def none(x): return x
-def norm(x, p): return x.norm(p=p)**p
-def get_scalar(x): return x.detach().item()
-def reshape(arr, x, y): return arr.view(x, y)
-def cuda(arr, gpu): return arr.cuda(gpu)
+none = lambda x: x
+norm = lambda x, p: x.norm(p=p)**p
+get_scalar = lambda x: x.detach().item()
+reshape = lambda arr, x, y: arr.view(x, y)
+cuda = lambda arr, gpu: arr.cuda(gpu)
 
 
 def l2_dist(x, y, pw=False):
@@ -67,7 +68,7 @@ def l2_dist(x, y, pw=False):
         x = x.unsqueeze(1)
         y = y.unsqueeze(0)
 
-    return -th.norm(x-y, p=2, dim=-1)
+    return -th.norm(x - y, p=2, dim=-1)
 
 
 def l1_dist(x, y, pw=False):
@@ -75,7 +76,7 @@ def l1_dist(x, y, pw=False):
         x = x.unsqueeze(1)
         y = y.unsqueeze(0)
 
-    return -th.norm(x-y, p=1, dim=-1)
+    return -th.norm(x - y, p=1, dim=-1)
 
 
 def dot_dist(x, y, pw=False):
@@ -124,9 +125,11 @@ def thread_wrapped_func(func):
     @thread_wrapped_func
     def func_to_wrap(args ...):
     """
+
     @wraps(func)
     def decorated_function(*args, **kwargs):
         queue = Queue()
+
         def _queue_result():
             exception, trace, res = None, None, None
             try:
@@ -143,6 +146,7 @@ def thread_wrapped_func(func):
         else:
             assert isinstance(exception, Exception)
             raise exception.__class__(trace)
+
     return decorated_function
 
 
@@ -202,7 +206,7 @@ class InferEmbedding:
         name : str
             Embedding name.
         """
-        file_name = os.path.join(path, name+'.npy')
+        file_name = os.path.join(path, name + '.npy')
         self.emb = th.Tensor(np.load(file_name))
 
     def load_emb(self, emb_array):
@@ -256,7 +260,6 @@ class ExternalEmbedding:
         self.async_q = None
         # asynchronous update process
         self.async_p = None
-        self.idx_all = th.arange(num, device=device)
 
     def init(self, emb_init):
         """Initializing the embeddings.
@@ -270,7 +273,7 @@ class ExternalEmbedding:
         INIT.zeros_(self.state_sum)
 
     def setup_cross_rels(self, cross_rels, global_emb):
-        cpu_bitmap = th.zeros((self.num,), dtype=th.bool)
+        cpu_bitmap = th.zeros((self.num, ), dtype=th.bool)
         for i, rel in enumerate(cross_rels):
             cpu_bitmap[rel] = 1
         self.cpu_bitmap = cpu_bitmap
@@ -303,8 +306,6 @@ class ExternalEmbedding:
             If False, do not trace the computation.
             Default: True
         """
-        if idx is None:
-            idx = self.idx_all
         if self.is_feat:
             assert not trace
         if self.has_cross_rel:
@@ -320,7 +321,6 @@ class ExternalEmbedding:
             s = th.from_numpy(self.emb[idx.numpy()]).to(th.float)
         else:
             s = self.emb[idx]
-
         if gpu_id >= 0:
             s = s.cuda(gpu_id)
         # During the training, we need to trace the computation.
@@ -348,6 +348,11 @@ class ExternalEmbedding:
                 grad = data.grad.data
 
                 clr = self.args.lr
+                if self.args.lr_decay_rate is None:
+                    clr = self.args.lr
+                else:
+                    clr = self.args.lr * (self.args.lr_decay_rate**(
+                        self.state_step // self.args.lr_decay_interval))
                 #clr = self.args.lr / (1 + (self.state_step - 1) * group['lr_decay'])
 
                 # the update is non-linear so indices must be unique
@@ -372,7 +377,8 @@ class ExternalEmbedding:
                             cpu_grad = grad_values[cpu_mask]
                             cpu_sum = grad_sum[cpu_mask].cpu()
                             cpu_idx = cpu_idx.cpu()
-                            self.global_emb.state_sum.index_add_(0, cpu_idx, cpu_sum)
+                            self.global_emb.state_sum.index_add_(0, cpu_idx,
+                                                                 cpu_sum)
                             std = self.global_emb.state_sum[cpu_idx]
                             if gpu_id >= 0:
                                 std = std.cuda(gpu_id)
@@ -396,7 +402,8 @@ class ExternalEmbedding:
         """Set up the async update subprocess.
         """
         self.async_q = Queue(1)
-        self.async_p = mp.Process(target=async_update, args=(self.args, self, self.async_q))
+        self.async_p = mp.Process(
+            target=async_update, args=(self.args, self, self.async_q))
         self.async_p.start()
 
     def finish_async_update(self):
@@ -421,7 +428,7 @@ class ExternalEmbedding:
         name : str
             Embedding name.
         """
-        file_name = os.path.join(path, name+'.npy')
+        file_name = os.path.join(path, name + '.npy')
         np.save(file_name, self.emb.cpu().detach().numpy())
 
     def load(self, path, name):
@@ -434,5 +441,103 @@ class ExternalEmbedding:
         name : str
             Embedding name.
         """
-        file_name = os.path.join(path, name+'.npy')
+        file_name = os.path.join(path, name + '.npy')
         self.emb = th.Tensor(np.load(file_name))
+
+
+class RelationExternalEmbedding(ExternalEmbedding):
+    """Sparse Embedding for Knowledge Graph
+    It is used to store both entity embeddings and relation embeddings.
+
+    Parameters
+    ----------
+    args :
+        Global configs.
+    num : int
+        Number of embeddings.
+    dim : int
+        Embedding dimention size.
+    device : th.device
+        Device to store the embedding.
+    """
+
+    def __init__(self, args, num, dim, device, is_feat=False):
+        super(RelationExternalEmbedding, self).__init__(args, num, dim, device,
+                                                        is_feat)
+        self.ote_size = args.ote_size
+        self.scale_type = args.scale_type
+        self.use_scale = True if args.scale_type > 0 else False
+        self.dim = dim
+        self.final_dim = self.dim * (int(self.use_scale) + args.ote_size)
+        self.num = num
+        self.emb = th.empty(
+            num, self.final_dim, dtype=th.float32, device=device)
+
+    def scale_init(self):
+        if self.scale_type == 1:
+            return 1.0
+        if self.scale_type == 2:
+            return 0.0
+        raise ValueError("Scale Type %d is not supported!" % self.scale_type)
+
+    def orth_embedding(self, embeddings, eps=1e-18, do_test=True):
+        #orthogonormalizing embeddings
+        #embeddings: num_emb X ote_size X (num_elem + (1 or 0))
+        num_emb = embeddings.size(0)
+        assert embeddings.size(1) == self.ote_size
+        assert embeddings.size(2) == (self.ote_size +
+                                      (1 if self.use_scale else 0))
+        if self.use_scale:
+            emb_scale = embeddings[:, :, -1]
+            embeddings = embeddings[:, :, :self.ote_size]
+
+        u = [embeddings[:, 0]]
+        uu = [0] * self.ote_size
+        uu[0] = (u[0] * u[0]).sum(dim=-1)
+        if do_test and (uu[0] < eps).sum() > 1:
+            return None
+        u_d = embeddings[:, 1:]
+        for i in range(1, self.ote_size):
+            u_d = u_d - u[-1].unsqueeze(dim=1) * (
+                (embeddings[:, i:] * u[i - 1].unsqueeze(dim=1)).sum(
+                    dim=-1) / uu[i - 1].unsqueeze(dim=1)).unsqueeze(-1)
+            u_i = u_d[:, 0]
+            u_d = u_d[:, 1:]
+            uu[i] = (u_i * u_i).sum(dim=-1)
+            if do_test and (uu[i] < eps).sum() > 1:
+                return None
+            u.append(u_i)
+
+        u = torch.stack(u, dim=1)  #num_emb X ote_size X num_elem
+        u_norm = u.norm(dim=-1, keepdim=True)
+        u = u / u_norm
+        if self.use_scale:
+            u = torch.cat((u, emb_scale.unsqueeze(-1)), dim=-1)
+        return u
+
+    def orth_rel_embedding(self):
+        rel_emb_size = self.emb.size()
+        ote_size = self.ote_size
+        scale_dim = 1 if self.use_scale else 0
+        rel_embedding = self.emb.view(-1, ote_size, ote_size + scale_dim)
+        rel_embedding = self.orth_embedding(rel_embedding).view(rel_emb_size)
+        return rel_embedding
+
+    def init(self, emb_init):
+        """Initializing the embeddings.
+
+        Parameters
+        ----------
+        emb_init : float
+            The intial embedding range should be [-emb_init, emb_init].
+        """
+        init_range = 1. / math.sqrt(self.final_dim)
+        INIT.uniform_(self.emb, a=-init_range, b=init_range)
+        if self.use_scale:
+            self.emb.data.view(
+                -1, self.ote_size +
+                1)[:, -1] = self.scale_init()  #start with no scale
+        rel_emb_data = self.orth_rel_embedding()
+        self.emb.data.copy_(
+            rel_emb_data.view(-1, self.dim * (int(self.use_scale) +
+                                              self.ote_size)))

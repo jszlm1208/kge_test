@@ -49,6 +49,7 @@ else:
     from .pytorch.tensor_models import floor_divide
     DEFAULT_INFER_BATCHSIZE = 1024
 
+
 class ScoreInfer(object):
     """ Calculate score of triplet (h, r, t) based on pretained KG embeddings
         using specified score_function
@@ -65,8 +66,10 @@ class ScoreInfer(object):
             none: score = $x$
             logsigmoid: score $log(sigmoid(x))
     """
+
     def __init__(self, device, config, model_path, sfunc='none'):
-        assert sfunc in ['none', 'logsigmoid'], 'score function should be none or logsigmoid'
+        assert sfunc in ['none', 'logsigmoid'
+                         ], 'score function should be none or logsigmoid'
 
         self.device = 'cpu' if device < 0 else device
         self.config = config
@@ -82,13 +85,14 @@ class ScoreInfer(object):
         model_path = self.model_path
         # for none score func, use 0.
         # for logsigmoid use original gamma to make the score closer to 0.
-        gamma=config['gamma'] if self.sfunc == 'logsigmoid' else 0.0
-        model = InferModel(device=self.device,
-                           model_name=config['model'],
-                           hidden_dim=config['emb_size'],
-                           double_entity_emb=config['double_ent'],
-                           double_relation_emb=config['double_rel'],
-                           gamma=gamma)
+        gamma = config['gamma'] if self.sfunc == 'logsigmoid' else 0.0
+        model = InferModel(
+            device=self.device,
+            model_name=config['model'],
+            hidden_dim=config['emb_size'],
+            double_entity_emb=config['double_ent'],
+            double_relation_emb=config['double_rel'],
+            gamma=gamma)
         dataset = config['dataset']
         model.load_emb(model_path, dataset)
         self.model = model
@@ -127,10 +131,8 @@ class ScoreInfer(object):
             score = score[sidx]
             idx = idx[sidx]
 
-            result.append((F.asnumpy(head[idx]),
-                           F.asnumpy(rel[idx]),
-                           F.asnumpy(tail[idx]),
-                           F.asnumpy(score)))
+            result.append((F.asnumpy(head[idx]), F.asnumpy(rel[idx]),
+                           F.asnumpy(tail[idx]), F.asnumpy(score)))
         elif exec_mode == 'all':
             result = []
             raw_score = self.model.score(head, rel, tail)
@@ -148,14 +150,13 @@ class ScoreInfer(object):
             idx = floor_divide(idx, num_rel)
             head_idx = idx % num_head
 
-            result.append((F.asnumpy(head[head_idx]),
-                           F.asnumpy(rel[rel_idx]),
-                           F.asnumpy(tail[tail_idx]),
-                           F.asnumpy(score)))
+            result.append((F.asnumpy(head[head_idx]), F.asnumpy(rel[rel_idx]),
+                           F.asnumpy(tail[tail_idx]), F.asnumpy(score)))
         elif exec_mode == 'batch_head':
             result = []
             for i in range(num_head):
-                raw_score = self.model.score(F.unsqueeze(head[i], 0), rel, tail)
+                raw_score = self.model.score(
+                    F.unsqueeze(head[i], 0), rel, tail)
                 score = self.score_func(raw_score)
                 idx = F.arange(0, num_rel * num_tail)
 
@@ -167,14 +168,14 @@ class ScoreInfer(object):
                 idx = floor_divide(idx, num_tail)
                 rel_idx = idx % num_rel
 
-                result.append((np.full((k,), F.asnumpy(head[i])),
-                               F.asnumpy(rel[rel_idx]),
-                               F.asnumpy(tail[tail_idx]),
-                               F.asnumpy(score)))
+                result.append((np.full(
+                    (k, ), F.asnumpy(head[i])), F.asnumpy(rel[rel_idx]),
+                               F.asnumpy(tail[tail_idx]), F.asnumpy(score)))
         elif exec_mode == 'batch_rel':
             result = []
             for i in range(num_rel):
-                raw_score = self.model.score(head, F.unsqueeze(rel[i], 0), tail)
+                raw_score = self.model.score(head,
+                                             F.unsqueeze(rel[i], 0), tail)
                 score = self.score_func(raw_score)
                 idx = F.arange(0, num_head * num_tail)
 
@@ -186,14 +187,14 @@ class ScoreInfer(object):
                 idx = floor_divide(idx, num_tail)
                 head_idx = idx % num_head
 
-                result.append((F.asnumpy(head[head_idx]),
-                               np.full((k,), F.asnumpy(rel[i])),
-                               F.asnumpy(tail[tail_idx]),
+                result.append((F.asnumpy(head[head_idx]), np.full(
+                    (k, ), F.asnumpy(rel[i])), F.asnumpy(tail[tail_idx]),
                                F.asnumpy(score)))
         elif exec_mode == 'batch_tail':
             result = []
             for i in range(num_tail):
-                raw_score = self.model.score(head, rel, F.unsqueeze(tail[i], 0))
+                raw_score = self.model.score(head, rel,
+                                             F.unsqueeze(tail[i], 0))
                 score = self.score_func(raw_score)
                 idx = F.arange(0, num_head * num_rel)
 
@@ -204,14 +205,14 @@ class ScoreInfer(object):
                 rel_idx = idx % num_rel
                 idx = floor_divide(idx, num_rel)
                 head_idx = idx % num_head
-                result.append((F.asnumpy(head[head_idx]),
-                               F.asnumpy(rel[rel_idx]),
-                               np.full((k,), F.asnumpy(tail[i])),
-                               F.asnumpy(score)))
+                result.append(
+                    (F.asnumpy(head[head_idx]), F.asnumpy(rel[rel_idx]),
+                     np.full((k, ), F.asnumpy(tail[i])), F.asnumpy(score)))
         else:
             assert False, 'unknow execution mode type {}'.format(exec_mode)
 
         return result
+
 
 class EmbSimInfer():
     """ Calculate simularity of entity/relation embeddings based on pretained KG embeddings
@@ -229,7 +230,12 @@ class EmbSimInfer():
             dot: score = $x \cdot y$
             ext_jaccard: score = $\frac{x \cdot y}{||x||_{2}^{2} + ||y||_{2}^{2} - x \cdot y}$
     """
-    def __init__(self, device, emb_file, sfunc='cosine', batch_size=DEFAULT_INFER_BATCHSIZE):
+
+    def __init__(self,
+                 device,
+                 emb_file,
+                 sfunc='cosine',
+                 batch_size=DEFAULT_INFER_BATCHSIZE):
         self.device = get_dev(device)
         self.emb_file = emb_file
         self.sfunc = sfunc
@@ -276,14 +282,16 @@ class EmbSimInfer():
                                                    if (i + 1) * batch_size < num_head \
                                                    else num_head]
                 st_emb = F.copy_to(st_emb, self.device)
-                score.append(F.copy_to(self.sim_func(sh_emb, st_emb, pw=True), F.cpu()))
+                score.append(
+                    F.copy_to(
+                        self.sim_func(
+                            sh_emb, st_emb, pw=True), F.cpu()))
             score = F.cat(score, dim=0)
 
             sidx = F.argsort(score, dim=0, descending=True)
             sidx = sidx[:k]
             score = score[sidx]
-            result.append((F.asnumpy(head[sidx]),
-                           F.asnumpy(tail[sidx]),
+            result.append((F.asnumpy(head[sidx]), F.asnumpy(tail[sidx]),
                            F.asnumpy(score)))
         else:
             num_head = head.shape[0]
@@ -303,7 +311,8 @@ class EmbSimInfer():
                                                     if (j + 1) * batch_size < num_tail \
                                                     else num_tail]
                     st_emb = F.copy_to(st_emb, self.device)
-                    s_score.append(F.copy_to(self.sim_func(sh_emb, st_emb), F.cpu()))
+                    s_score.append(
+                        F.copy_to(self.sim_func(sh_emb, st_emb), F.cpu()))
                 score.append(F.cat(s_score, dim=1))
             score = F.cat(score, dim=0)
 
@@ -322,10 +331,9 @@ class EmbSimInfer():
                 head_idx = idx % num_head
 
                 result.append((F.asnumpy(head[head_idx]),
-                           F.asnumpy(tail[tail_idx]),
-                           F.asnumpy(score)))
+                               F.asnumpy(tail[tail_idx]), F.asnumpy(score)))
 
-            else: # bcast at head
+            else:  # bcast at head
                 result = []
                 for i in range(num_head):
                     i_score = score[i]
@@ -336,9 +344,7 @@ class EmbSimInfer():
                     i_score = i_score[i_idx]
                     idx = idx[i_idx]
 
-                    result.append((np.full((k,), F.asnumpy(head[i])),
-                                  F.asnumpy(tail[idx]),
-                                  F.asnumpy(i_score)))
+                    result.append((np.full((k, ), F.asnumpy(head[i])),
+                                   F.asnumpy(tail[idx]), F.asnumpy(i_score)))
 
         return result
-

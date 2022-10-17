@@ -75,8 +75,8 @@ def SoftRelationPartition(edges, n, has_importance=False, threshold=0.05):
     cnts = cnts[idx]
     uniq = uniq[idx]
     assert cnts[0] > cnts[-1]
-    edge_cnts = np.zeros(shape=(n,), dtype=np.int64)
-    rel_cnts = np.zeros(shape=(n,), dtype=np.int64)
+    edge_cnts = np.zeros(shape=(n, ), dtype=np.int64)
+    rel_cnts = np.zeros(shape=(n, ), dtype=np.int64)
     rel_dict = {}
     rel_parts = []
     cross_rel_part = []
@@ -87,7 +87,7 @@ def SoftRelationPartition(edges, n, has_importance=False, threshold=0.05):
     capacity_per_partition = int(len(rels) / n)
     # ensure any relation larger than the partition capacity will be split
     large_threshold = capacity_per_partition if capacity_per_partition < large_threshold \
-        else large_threshold
+                      else large_threshold
     num_cross_part = 0
     for i in range(len(cnts)):
         cnt = cnts[i]
@@ -113,8 +113,10 @@ def SoftRelationPartition(edges, n, has_importance=False, threshold=0.05):
         rel_dict[r] = r_parts
 
     for i, edge_cnt in enumerate(edge_cnts):
-        print('part {} has {} edges and {} relations'.format(i, edge_cnt, rel_cnts[i]))
-    print('{}/{} duplicated relation across partitions'.format(num_cross_part, len(cnts)))
+        print('part {} has {} edges and {} relations'.format(i, edge_cnt,
+                                                             rel_cnts[i]))
+    print('{}/{} duplicated relation across partitions'.format(num_cross_part,
+                                                               len(cnts)))
 
     parts = []
     for i in range(n):
@@ -188,8 +190,8 @@ def BalancedRelationPartition(edges, n, has_importance=False):
     cnts = cnts[idx]
     uniq = uniq[idx]
     assert cnts[0] > cnts[-1]
-    edge_cnts = np.zeros(shape=(n,), dtype=np.int64)
-    rel_cnts = np.zeros(shape=(n,), dtype=np.int64)
+    edge_cnts = np.zeros(shape=(n, ), dtype=np.int64)
+    rel_cnts = np.zeros(shape=(n, ), dtype=np.int64)
     rel_dict = {}
     rel_parts = []
     for _ in range(n):
@@ -221,8 +223,10 @@ def BalancedRelationPartition(edges, n, has_importance=False):
         rel_dict[r] = r_parts
 
     for i, edge_cnt in enumerate(edge_cnts):
-        print('part {} has {} edges and {} relations'.format(i, edge_cnt, rel_cnts[i]))
-    print('{}/{} duplicated relation across partitions'.format(num_cross_part, len(cnts)))
+        print('part {} has {} edges and {} relations'.format(i, edge_cnt,
+                                                             rel_cnts[i]))
+    print('{}/{} duplicated relation across partitions'.format(num_cross_part,
+                                                               len(cnts)))
 
     parts = []
     for i in range(n):
@@ -310,7 +314,8 @@ def ConstructGraph(edges, n_entities, args):
         src, etype_id, dst, e_impts = edges
     else:
         src, etype_id, dst = edges
-    coo = sp.sparse.coo_matrix((np.ones(len(src)), (src, dst)), shape=[n_entities, n_entities])
+    coo = sp.sparse.coo_matrix(
+        (np.ones(len(src)), (src, dst)), shape=[n_entities, n_entities])
     g = dgl.DGLGraph(coo, readonly=True, multigraph=True, sort_csr=True)
     g.edata['tid'] = F.tensor(etype_id, F.int64)
     if args.has_edge_importance:
@@ -338,9 +343,10 @@ class TrainDataset(object):
 
         if ranks > 1 and args.rel_part:
             self.edge_parts, self.rel_parts, self.cross_part, self.cross_rels = \
-                SoftRelationPartition(triples, ranks, has_importance=has_importance)
+            SoftRelationPartition(triples, ranks, has_importance=has_importance)
         elif ranks > 1:
-            self.edge_parts = RandomPartition(triples, ranks, has_importance=has_importance)
+            self.edge_parts = RandomPartition(
+                triples, ranks, has_importance=has_importance)
             self.cross_part = True
         else:
             self.edge_parts = [np.arange(num_train)]
@@ -349,8 +355,15 @@ class TrainDataset(object):
 
         self.g = ConstructGraph(triples, dataset.n_entities, args)
 
-    def create_sampler(self, batch_size, neg_sample_size=2, neg_chunk_size=None, mode='head', num_workers=32,
-                       shuffle=True, exclude_positive=False, rank=0):
+    def create_sampler(self,
+                       batch_size,
+                       neg_sample_size=2,
+                       neg_chunk_size=None,
+                       mode='head',
+                       num_workers=32,
+                       shuffle=True,
+                       exclude_positive=False,
+                       rank=0):
         """Create sampler for training
 
         Parameters
@@ -383,16 +396,17 @@ class TrainDataset(object):
         """
         EdgeSampler = getattr(dgl.contrib.sampling, 'EdgeSampler')
         assert batch_size % neg_sample_size == 0, 'batch_size should be divisible by B'
-        return EdgeSampler(self.g,
-                           seed_edges=F.tensor(self.edge_parts[rank]),
-                           batch_size=batch_size,
-                           neg_sample_size=int(neg_sample_size/neg_chunk_size),
-                           chunk_size=neg_chunk_size,
-                           negative_mode=mode,
-                           num_workers=num_workers,
-                           shuffle=shuffle,
-                           exclude_positive=exclude_positive,
-                           return_false_neg=False)
+        return EdgeSampler(
+            self.g,
+            seed_edges=F.tensor(self.edge_parts[rank]),
+            batch_size=batch_size,
+            neg_sample_size=int(neg_sample_size / neg_chunk_size),
+            chunk_size=neg_chunk_size,
+            negative_mode=mode,
+            num_workers=num_workers,
+            shuffle=shuffle,
+            exclude_positive=exclude_positive,
+            return_false_neg=False)
 
 
 class ChunkNegEdgeSubgraph(dgl.DGLGraph):
@@ -413,11 +427,10 @@ class ChunkNegEdgeSubgraph(dgl.DGLGraph):
             If False, negative_mode is 'tail'
     """
 
-    def __init__(self, subg, num_chunks, chunk_size,
-                 neg_sample_size, neg_head):
-        super(ChunkNegEdgeSubgraph, self).__init__(graph_data=subg.sgi.graph,
-                                                   readonly=True,
-                                                   parent=subg._parent)
+    def __init__(self, subg, num_chunks, chunk_size, neg_sample_size,
+                 neg_head):
+        super(ChunkNegEdgeSubgraph, self).__init__(
+            graph_data=subg.sgi.graph, readonly=True, parent=subg._parent)
         self.ndata[NID] = subg.sgi.induced_nodes.tousertensor()
         self.edata[EID] = subg.sgi.induced_edges.tousertensor()
         self.subg = subg
@@ -487,8 +500,8 @@ def create_neg_subgraph(pos_g, neg_g, chunk_size, neg_sample_size, is_chunked,
     else:
         num_chunks = pos_g.number_of_edges()
         chunk_size = 1
-    return ChunkNegEdgeSubgraph(neg_g, num_chunks, chunk_size,
-                                neg_sample_size, neg_head)
+    return ChunkNegEdgeSubgraph(neg_g, num_chunks, chunk_size, neg_sample_size,
+                                neg_head)
 
 
 class EvalSampler(object):
@@ -516,20 +529,28 @@ class EvalSampler(object):
         Default: True
     """
 
-    def __init__(self, g, edges, batch_size, neg_sample_size, neg_chunk_size, mode, num_workers=32,
+    def __init__(self,
+                 g,
+                 edges,
+                 batch_size,
+                 neg_sample_size,
+                 neg_chunk_size,
+                 mode,
+                 num_workers=32,
                  filter_false_neg=True):
         EdgeSampler = getattr(dgl.contrib.sampling, 'EdgeSampler')
-        self.sampler = EdgeSampler(g,
-                                   batch_size=batch_size,
-                                   seed_edges=edges,
-                                   neg_sample_size=neg_sample_size,
-                                   chunk_size=neg_chunk_size,
-                                   negative_mode=mode,
-                                   num_workers=num_workers,
-                                   shuffle=False,
-                                   exclude_positive=False,
-                                   relations=g.edata['tid'],
-                                   return_false_neg=filter_false_neg)
+        self.sampler = EdgeSampler(
+            g,
+            batch_size=batch_size,
+            seed_edges=edges,
+            neg_sample_size=neg_sample_size,
+            chunk_size=neg_chunk_size,
+            negative_mode=mode,
+            num_workers=num_workers,
+            shuffle=False,
+            exclude_positive=False,
+            relations=g.edata['tid'],
+            return_false_neg=filter_false_neg)
         self.sampler_iter = iter(self.sampler)
         self.mode = mode
         self.neg_head = 'head' in mode
@@ -555,11 +576,9 @@ class EvalSampler(object):
             pos_g, neg_g = next(self.sampler_iter)
             if self.filter_false_neg:
                 neg_positive = neg_g.edata['false_neg']
-            neg_g = create_neg_subgraph(pos_g, neg_g,
-                                        self.neg_chunk_size,
+            neg_g = create_neg_subgraph(pos_g, neg_g, self.neg_chunk_size,
                                         self.neg_sample_size,
-                                        'chunk' in self.mode,
-                                        self.neg_head,
+                                        'chunk' in self.mode, self.neg_head,
                                         self.g.number_of_nodes())
             if neg_g is not None:
                 break
@@ -637,9 +656,19 @@ class WikiEvalSampler(object):
         else:
             self.cnt += self.batch_size
         if self.mode == 't,r->h':
-            return F.tensor(self.edges['t,r->h']['tr'][beg:self.cnt], F.int64), F.tensor(self.edges['t,r->h']['h_correct_index'][beg:self.cnt], F.int64), F.tensor(self.edges['t,r->h']['h_candidate'][beg:self.cnt], F.int64)
+            return F.tensor(
+                self.edges['t,r->h']['tr'][beg:self.cnt], F.int64), F.tensor(
+                    self.edges['t,r->h']['h_correct_index'][beg:self.cnt],
+                    F.int64), F.tensor(
+                        self.edges['t,r->h']['h_candidate'][beg:self.cnt],
+                        F.int64)
         elif self.mode == 'h,r->t':
-            return F.tensor(self.edges['h,r->t']['hr'][beg:self.cnt], F.int64), F.tensor(self.edges['h,r->t']['t_correct_index'][beg:self.cnt], F.int64), F.tensor(self.edges['h,r->t']['t_candidate'][beg:self.cnt], F.int64)
+            return F.tensor(
+                self.edges['h,r->t']['hr'][beg:self.cnt], F.int64), F.tensor(
+                    self.edges['h,r->t']['t_correct_index'][beg:self.cnt],
+                    F.int64), F.tensor(
+                        self.edges['h,r->t']['t_candidate'][beg:self.cnt],
+                        F.int64)
 
     def reset(self):
         """Reset the sampler
@@ -676,7 +705,6 @@ class EvalDataset(object):
             # self.num_valid = len(self.valid_dict['t,r->h']['tr'])+len(self.valid_dict['h,r->t']['hr'])
         else:
             self.num_valid = 0
-
         if dataset.test is not None:
             src.append(dataset.test[0])
             etype_id.append(dataset.test[1])
@@ -733,8 +761,16 @@ class EvalDataset(object):
         else:
             raise Exception('get invalid type: ' + eval_type)
 
-    def create_sampler(self, eval_type, batch_size, neg_sample_size, neg_chunk_size,
-                       filter_false_neg, mode='head', num_workers=32, rank=0, ranks=1):
+    def create_sampler(self,
+                       eval_type,
+                       batch_size,
+                       neg_sample_size,
+                       neg_chunk_size,
+                       filter_false_neg,
+                       mode='head',
+                       num_workers=32,
+                       rank=0,
+                       ranks=1):
         """Create sampler for validation or testing
 
         Parameters
@@ -781,19 +817,22 @@ class EvalDataset(object):
 
         if 'tail' in mode:
             beg = edges['h,r->t']['hr'].shape[0] * rank // ranks
-            end = min(edges['h,r->t']['hr'].shape[0] * (rank + 1) //
-                      ranks, edges['h,r->t']['hr'].shape[0])
-
-            new_edges['h,r->t'] = {'hr': edges['h,r->t']['hr'][beg:end],
-                                   't_candidate': edges['h,r->t']['t_candidate'][beg:end],
-                                   }
-            if 't' in edges['h,r->t']:
-                new_edges['h,r->t']['t_correct_index'] = edges['h,r->t']['t'][beg:end]
+            end = min(edges['h,r->t']['hr'].shape[0] * (rank + 1) // ranks,
+                      edges['h,r->t']['hr'].shape[0])
+            new_edges['h,r->t'] = {
+                'hr': edges['h,r->t']['hr'][beg:end],
+                't_candidate': edges['h,r->t']['t_candidate'][beg:end],
+                #    't_correct_index': edges['h,r->t']['t_correct_index'][beg:end]
+            }
+            if 't_correct_index' in edges['h,r->t']:
+                new_edges['h,r->t']['t_correct_index'] = edges['h,r->t'][
+                    't_correct_index'][beg:end]
             else:
-                new_edges['h,r->t']['t_correct_index'] = np.zeros(end-beg, dtype=np.short)
+                new_edges['h,r->t']['t_correct_index'] = np.zeros(
+                    end - beg, dtype=np.short)
         else:
             assert False, mode
-        print (beg, end)
+        print(beg, end)
         return WikiEvalSampler(new_edges, batch_size, mode)
 
 
@@ -816,16 +855,22 @@ class NewBidirectionalOneShotIterator:
         Total number of nodes in the whole graph.
     """
 
-    def __init__(self, dataloader_head, dataloader_tail, neg_chunk_size, neg_sample_size,
-                 is_chunked, num_nodes, has_edge_importance=False):
+    def __init__(self,
+                 dataloader_head,
+                 dataloader_tail,
+                 neg_chunk_size,
+                 neg_sample_size,
+                 is_chunked,
+                 num_nodes,
+                 has_edge_importance=False):
         self.sampler_head = dataloader_head
         self.sampler_tail = dataloader_tail
-        self.iterator_head = self.one_shot_iterator(dataloader_head, neg_chunk_size,
-                                                    neg_sample_size, is_chunked,
-                                                    True, num_nodes, has_edge_importance)
-        self.iterator_tail = self.one_shot_iterator(dataloader_tail, neg_chunk_size,
-                                                    neg_sample_size, is_chunked,
-                                                    False, num_nodes, has_edge_importance)
+        self.iterator_head = self.one_shot_iterator(
+            dataloader_head, neg_chunk_size, neg_sample_size, is_chunked, True,
+            num_nodes, has_edge_importance)
+        self.iterator_tail = self.one_shot_iterator(
+            dataloader_tail, neg_chunk_size, neg_sample_size, is_chunked,
+            False, num_nodes, has_edge_importance)
         self.step = 0
 
     def __next__(self):
@@ -837,18 +882,26 @@ class NewBidirectionalOneShotIterator:
         return pos_g, neg_g
 
     @staticmethod
-    def one_shot_iterator(dataloader, neg_chunk_size, neg_sample_size, is_chunked,
-                          neg_head, num_nodes, has_edge_importance=False):
+    def one_shot_iterator(dataloader,
+                          neg_chunk_size,
+                          neg_sample_size,
+                          is_chunked,
+                          neg_head,
+                          num_nodes,
+                          has_edge_importance=False):
         while True:
             for pos_g, neg_g in dataloader:
-                neg_g = create_neg_subgraph(pos_g, neg_g, neg_chunk_size, neg_sample_size,
-                                            is_chunked, neg_head, num_nodes)
+                neg_g = create_neg_subgraph(pos_g, neg_g, neg_chunk_size,
+                                            neg_sample_size, is_chunked,
+                                            neg_head, num_nodes)
                 if neg_g is None:
                     continue
 
                 pos_g.ndata['id'] = pos_g.parent_nid
                 neg_g.ndata['id'] = neg_g.parent_nid
-                pos_g.edata['id'] = pos_g._parent.edata['tid'][pos_g.parent_eid]
+                pos_g.edata['id'] = pos_g._parent.edata['tid'][
+                    pos_g.parent_eid]
                 if has_edge_importance:
-                    pos_g.edata['impts'] = pos_g._parent.edata['impts'][pos_g.parent_eid]
+                    pos_g.edata['impts'] = pos_g._parent.edata['impts'][
+                        pos_g.parent_eid]
                 yield pos_g, neg_g

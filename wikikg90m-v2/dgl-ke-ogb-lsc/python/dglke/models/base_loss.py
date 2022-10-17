@@ -1,6 +1,22 @@
+# Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
 class BaseLoss(object):
     def __call__(self, score, label):
         pass
+
 
 class BaseLogisticLoss(BaseLoss):
     """ Logistic Loss
@@ -9,11 +25,13 @@ class BaseLogisticLoss(BaseLoss):
     f : score function
     t_i : triple i
     """
+
     def __init__(self):
         super(BaseLogisticLoss, self).__init__()
 
     def __call__(self, score, label):
         pass
+
 
 class BaseBCELoss(BaseLoss):
     """ Binary Cross Entropy Loss
@@ -23,11 +41,13 @@ class BaseBCELoss(BaseLoss):
     \sigma : logistic sigmoid function
     t_i : triple i
     """
+
     def __init__(self):
         super(BaseBCELoss, self).__init__()
 
     def __call__(self, score, label):
         pass
+
 
 class BaseHingeLoss(BaseLoss):
     """ Hinge Loss
@@ -37,12 +57,14 @@ class BaseHingeLoss(BaseLoss):
     f : score function
     t_i : triple i
     """
+
     def __init__(self, margin):
         super(BaseHingeLoss, self).__init__()
         self.margin = margin
 
     def __call__(self, score, label):
         pass
+
 
 class BaseLogsigmoidLoss(BaseLoss):
     """ Logsigmoid Loss
@@ -51,6 +73,7 @@ class BaseLogsigmoidLoss(BaseLoss):
     f : score
     t_i : triple i
     """
+
     def __init__(self):
         super(BaseLogsigmoidLoss, self).__init__()
 
@@ -62,7 +85,9 @@ class BaseLossGenerator(object):
     """ loss generator class is responsible for calculate loss for positive & negative loss / pairwise loss.
     It has different implementations of concrete method in regards of PyTorch and MXNet.
     """
-    def __init__(self, neg_adversarial_sampling, adversarial_temperature, pairwise):
+
+    def __init__(self, neg_adversarial_sampling, adversarial_temperature,
+                 pairwise):
         """ initialize BaseLossGenerator class
 
         Parameters
